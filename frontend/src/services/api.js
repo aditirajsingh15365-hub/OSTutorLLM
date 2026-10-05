@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: 'https://ostutorllm.onrender.com/'
+    baseURL: 'https://ostutorllm.onrender.com/api'
 });
 
 export const checkHealth = async () => {
