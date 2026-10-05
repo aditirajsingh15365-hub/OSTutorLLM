@@ -14,6 +14,7 @@ Frontend on **Vercel**, backend on **Render**.
 | `GEMINI_API_KEY` | your key (never commit it) |
 | `LLM_MODE` | `gemini` |
 | `GEMINI_MODEL` | a model ID your key can use (`python -m scripts.list_models`) |
+| `GEMINI_FALLBACK_MODEL` | optional; used for one response when `GEMINI_MODEL` returns 503 (default `gemini-3.5-flash-lite`, empty disables it) |
 | `CORS_ORIGINS` | your Vercel URL(s), comma-separated, no trailing slash, e.g. `https://your-app.vercel.app` |
 | `CORS_ORIGIN_REGEX` | optional, for Vercel preview URLs, e.g. `https://your-project-.*\.vercel\.app` |
 

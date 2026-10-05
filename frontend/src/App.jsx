@@ -79,6 +79,9 @@ function App() {
         follow_up: data.follow_up_question,
         suggestion: data.suggestion,
         topic: data.topic,
+        fallback_used: data.fallback_used,
+        model_used: data.model_used,
+        primary_model: data.primary_model,
       };
       setMessages((prev) => [...prev, tutorMessage]);
     } catch (error) {

@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
+from google.genai import errors as genai_errors
 
 from core.config import settings
 from main import app
@@ -56,6 +57,8 @@ def test_chat_mock():
     assert "Mock beginner response" in data["answer"]
     assert data["follow_up_question"] is not None
     assert data["suggestion"] is not None
+    assert data["fallback_used"] is False
+    assert data["model_used"] == "mock"
 
 
 def test_chat_uses_history_to_keep_topic(monkeypatch):
@@ -196,3 +199,108 @@ def test_cors_origin_regex_allows_matching_origins(monkeypatch):
     preview = "https://ostutorllm-git-feature-me.vercel.app"
     assert preflight(preview).headers["access-control-allow-origin"] == preview
     assert "access-control-allow-origin" not in preflight("https://other-site.vercel.app").headers
+
+
+# ---------------------------------------------------------------------------
+# Fallback model (primary 503 -> lite model for that one response)
+# ---------------------------------------------------------------------------
+
+PRIMARY = "primary-model"
+FALLBACK = "fallback-model"
+
+
+def overloaded():
+    return genai_errors.ServerError(
+        503, {"error": {"code": 503, "message": "The model is overloaded.", "status": "UNAVAILABLE"}}
+    )
+
+
+def ok(text):
+    return SimpleNamespace(parsed=TutorLLMResponse(answer=text), text=None)
+
+
+class RoutedClient:
+    """Fake Gemini client whose behavior depends on which model is requested."""
+
+    def __init__(self, routes):
+        self.routes = routes
+        self.models = self
+        self.called_models = []
+
+    def generate_content(self, model, contents, config):
+        self.called_models.append(model)
+        outcome = self.routes[model]
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+
+@pytest.fixture
+def routed(monkeypatch, real_mode):
+    monkeypatch.setattr(settings, "GEMINI_MODEL", PRIMARY)
+    monkeypatch.setattr(settings, "GEMINI_FALLBACK_MODEL", FALLBACK)
+
+    def install(routes):
+        fake = RoutedClient(routes)
+        monkeypatch.setattr(tutor_controller.llm_service, "client", fake)
+        return fake
+
+    return install
+
+
+def test_503_on_primary_uses_fallback_model(routed):
+    fake = routed({PRIMARY: overloaded(), FALLBACK: ok("from the lite model")})
+
+    response = client.post("/api/chat", json=PAYLOAD)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["answer"] == "from the lite model"
+    assert data["fallback_used"] is True
+    assert data["model_used"] == FALLBACK
+    assert data["primary_model"] == PRIMARY
+    # The 503 is not retried on the primary model: straight to the fallback.
+    assert fake.called_models == [PRIMARY, FALLBACK]
+
+
+def test_fallback_applies_to_one_response_only(routed):
+    fake = routed({PRIMARY: overloaded(), FALLBACK: ok("lite")})
+    assert client.post("/api/chat", json=PAYLOAD).json()["answer"] == "lite"
+
+    # Primary recovers: the next request goes back to it.
+    fake.routes[PRIMARY] = ok("primary is back")
+    fake.called_models.clear()
+
+    data = client.post("/api/chat", json=PAYLOAD).json()
+    assert data["answer"] == "primary is back"
+    assert data["fallback_used"] is False
+    assert data["model_used"] == PRIMARY
+    assert fake.called_models == [PRIMARY]
+
+
+def test_non_503_error_retries_primary_and_does_not_fall_back(routed):
+    fake = routed({PRIMARY: RuntimeError("boom"), FALLBACK: ok("should not be used")})
+
+    response = client.post("/api/chat", json=PAYLOAD)
+
+    assert response.status_code == 502
+    assert fake.called_models == [PRIMARY] * llm_service.MAX_ATTEMPTS
+
+
+def test_both_models_unavailable_returns_502(routed):
+    fake = routed({PRIMARY: overloaded(), FALLBACK: overloaded()})
+
+    response = client.post("/api/chat", json=PAYLOAD)
+
+    assert response.status_code == 502
+    assert fake.called_models == [PRIMARY, FALLBACK]
+
+
+def test_fallback_can_be_disabled(routed, monkeypatch):
+    monkeypatch.setattr(settings, "GEMINI_FALLBACK_MODEL", "")
+    fake = routed({PRIMARY: overloaded()})
+
+    response = client.post("/api/chat", json=PAYLOAD)
+
+    assert response.status_code == 502
+    assert fake.called_models == [PRIMARY]

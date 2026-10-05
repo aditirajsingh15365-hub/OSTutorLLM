@@ -31,12 +31,13 @@ class TutorController:
         topic = self.topic_service.detect_topic(request.message, student_messages)
 
         # May raise LLMServiceError; the router turns that into an HTTP error.
-        llm_response = self.llm_service.generate_response(
+        result = self.llm_service.generate_response(
             user_msg=request.message,
             mode=request.learning_mode,
             history=history,
         )
 
+        llm_response = result.response
         return ChatResponse(
             session_id=request.session_id,
             topic=topic,
@@ -44,4 +45,7 @@ class TutorController:
             follow_up_question=llm_response.follow_up_question,
             suggestion=llm_response.suggestion,
             mode=request.learning_mode,
+            model_used=result.model,
+            primary_model=result.primary_model,
+            fallback_used=result.fallback_used,
         )

@@ -24,3 +24,8 @@ class ChatResponse(BaseModel):
     follow_up_question: Optional[str] = None
     suggestion: Optional[str] = None
     mode: str
+    # Which model answered. fallback_used is True when the primary model was
+    # overloaded (503) and the lite model answered this response instead.
+    model_used: Optional[str] = None
+    primary_model: Optional[str] = None
+    fallback_used: bool = False

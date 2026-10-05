@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     # Run `python -m scripts.list_models` to see which model IDs your key can use.
     GEMINI_MODEL: str = "gemini-3.8-flash"
+    # Used for a single response when GEMINI_MODEL answers 503 (overloaded/unavailable).
+    # Set to an empty value to disable the fallback.
+    GEMINI_FALLBACK_MODEL: str = "gemini-3.5-flash-lite"
 
     # Comma-separated list of frontend origins allowed to call this API.
     CORS_ORIGINS: str = (

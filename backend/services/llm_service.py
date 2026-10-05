@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+from dataclasses import dataclass
 from typing import List, Optional
 
 from google import genai
@@ -13,6 +14,14 @@ logger = logging.getLogger(__name__)
 
 MAX_ATTEMPTS = 2
 RETRY_DELAY_SECONDS = 1.0
+
+# HTTP status codes that mean "this model is unavailable right now, try the fallback
+# model instead of retrying it". Add 429/500/504 here if you want those to fall back too.
+FALLBACK_STATUS_CODES = {503}
+
+
+def _is_unavailable(exc: Exception) -> bool:
+    return getattr(exc, "code", None) in FALLBACK_STATUS_CODES
 
 
 class LLMServiceError(Exception):
@@ -34,6 +43,16 @@ class TutorLLMResponse(BaseModel):
     suggestion: Optional[str] = Field(description="A highly relevant suggested next topic. Omit if not appropriate.", default=None)
 
 
+@dataclass
+class LLMResult:
+    """A tutor response plus which model produced it."""
+
+    response: TutorLLMResponse
+    model: str
+    primary_model: str
+    fallback_used: bool = False
+
+
 class LLMService:
     def __init__(self):
         if settings.GEMINI_API_KEY:
@@ -41,9 +60,13 @@ class LLMService:
         else:
             self.client = None
 
-    def generate_response(self, user_msg: str, mode: str, history: Optional[List[dict]] = None) -> TutorLLMResponse:
+    def generate_response(self, user_msg: str, mode: str, history: Optional[List[dict]] = None) -> LLMResult:
         if settings.LLM_MODE.lower() == "mock":
-            return self._mock_response(user_msg, mode)
+            return LLMResult(
+                response=self._mock_response(user_msg, mode),
+                model="mock",
+                primary_model="mock",
+            )
         return self._real_response(user_msg, mode, history)
 
     def _mock_response(self, prompt: str, mode: str) -> TutorLLMResponse:
@@ -101,7 +124,7 @@ class LLMService:
             raise ValueError("Model returned an empty response")
         return TutorLLMResponse(**json.loads(text))
 
-    def _real_response(self, user_msg: str, mode: str, history: Optional[List[dict]]) -> TutorLLMResponse:
+    def _real_response(self, user_msg: str, mode: str, history: Optional[List[dict]]) -> LLMResult:
         if not self.client:
             logger.error("LLM_MODE is not 'mock' but GEMINI_API_KEY is not set")
             raise LLMServiceError(
@@ -117,23 +140,54 @@ class LLMService:
             temperature=0.7,
         )
 
+        primary = settings.GEMINI_MODEL
+        fallback = (settings.GEMINI_FALLBACK_MODEL or "").strip()
+
+        try:
+            answer = self._generate_with_retries(primary, contents, config)
+            return LLMResult(response=answer, model=primary, primary_model=primary)
+        except Exception as exc:
+            last_error = exc
+
+        # Fall back for THIS response only. The next request tries the primary model again.
+        if fallback and fallback != primary and _is_unavailable(last_error):
+            logger.warning("%s unavailable (%r); using fallback model %s for this response",
+                           primary, last_error, fallback)
+            try:
+                answer = self._generate_with_retries(fallback, contents, config)
+                return LLMResult(
+                    response=answer, model=fallback, primary_model=primary, fallback_used=True
+                )
+            except Exception as exc:
+                logger.error("Fallback model %s also failed: %r", fallback, exc)
+                last_error = exc
+
+        logger.error("LLM request failed", exc_info=last_error)
+        raise LLMServiceError(
+            "The tutor couldn't generate a response right now. Please try again in a moment.",
+            status_code=502,
+        ) from last_error
+
+    def _generate_with_retries(self, model: str, contents, config) -> TutorLLMResponse:
+        """Call one model, retrying transient errors on that same model.
+
+        A 503 is raised immediately instead of being retried, so the caller can
+        switch to the fallback model without waiting.
+        """
         last_error = None
         for attempt in range(1, MAX_ATTEMPTS + 1):
             try:
                 response = self.client.models.generate_content(
-                    model=settings.GEMINI_MODEL,
+                    model=model,
                     contents=contents,
                     config=config,
                 )
                 return self._parse_response(response)
             except Exception as exc:
+                if _is_unavailable(exc):
+                    raise
                 last_error = exc
-                logger.warning("LLM attempt %d/%d failed: %r", attempt, MAX_ATTEMPTS, exc)
+                logger.warning("%s attempt %d/%d failed: %r", model, attempt, MAX_ATTEMPTS, exc)
                 if attempt < MAX_ATTEMPTS:
                     time.sleep(RETRY_DELAY_SECONDS * attempt)
-
-        logger.error("LLM request failed after %d attempts", MAX_ATTEMPTS, exc_info=last_error)
-        raise LLMServiceError(
-            "The tutor couldn't generate a response right now. Please try again in a moment.",
-            status_code=502,
-        ) from last_error
+        raise last_error
