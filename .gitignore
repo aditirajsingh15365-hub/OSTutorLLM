@@ -1,0 +1,43 @@
+# Node
+node_modules/
+dist/
+build/
+.npm/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Environment and Secrets
+.env
+.env.*
+secrets/
+credentials/
+!*.example
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs and runtime
+*.log
+coverage/
+.cache/
+
+# Local data (Databases, Vector Stores)
+*.sqlite3
+chroma_db/
+local_data/
+
+# Specific scripts that aren't source code
+refactor_frontend.py
+create_backend.py
+create_frontend.py
+test_flow.py
