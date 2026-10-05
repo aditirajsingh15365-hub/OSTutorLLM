@@ -1,9 +1,10 @@
 import MarkdownRenderer from './MarkdownRenderer';
 import FollowUpCard from './FollowUpCard';
 import SuggestionCard from './SuggestionCard';
+import FallbackNotice from './FallbackNotice';
 import { User, Brain, AlertTriangle } from 'lucide-react';
 
-export default function ChatMessage({ msg, onSuggestionClick }) {
+export default function ChatMessage({ msg, onSuggestionClick, onFollowUpClick }) {
   const isUser = msg.role === 'user';
   const isError = msg.role === 'error';
 
@@ -54,10 +55,15 @@ export default function ChatMessage({ msg, onSuggestionClick }) {
             )}
           </div>
           
+          {/* Shown when the lite model answered because the main model was overloaded */}
+          {!isUser && msg.fallback_used && (
+            <FallbackNotice model={msg.model_used} primaryModel={msg.primary_model} />
+          )}
+
           {/* Cards outside the main bubble */}
           {!isUser && (
             <div className="w-full flex flex-col gap-1 mt-1 pl-1 md:pl-2">
-              <FollowUpCard question={msg.follow_up} onClick={onSuggestionClick} />
+              <FollowUpCard question={msg.follow_up} onClick={onFollowUpClick} />
               <SuggestionCard suggestion={msg.suggestion} onClick={onSuggestionClick} />
             </div>
           )}
