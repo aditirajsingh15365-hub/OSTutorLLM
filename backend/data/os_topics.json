@@ -1,16 +1,58 @@
 [
-  "Processes",
-  "Threads",
-  "CPU Scheduling",
-  "Process Synchronization",
-  "Deadlocks",
-  "Memory Management",
-  "Virtual Memory",
-  "File Systems",
-  "Disk Scheduling",
-  "I/O Systems",
-  "Operating System Structure",
-  "System Calls",
-  "IPC",
-  "Linux basics"
+  {
+    "name": "Processes",
+    "keywords": ["process", "pcb", "process control block", "process state", "process creation", "context switch", "fork", "zombie", "orphan"]
+  },
+  {
+    "name": "Threads",
+    "keywords": ["thread", "multithreading", "multithreaded", "pthread", "kernel thread", "user thread"]
+  },
+  {
+    "name": "CPU Scheduling",
+    "keywords": ["cpu scheduling", "scheduling", "scheduler", "round robin", "round-robin", "fcfs", "first come first served", "first come first serve", "sjf", "shortest job first", "srtf", "shortest remaining time", "priority scheduling", "multilevel queue", "multilevel feedback queue", "turnaround time", "waiting time", "gantt chart", "time quantum", "preemptive", "convoy effect"]
+  },
+  {
+    "name": "Process Synchronization",
+    "keywords": ["process synchronization", "synchronization", "synchronisation", "semaphore", "mutex", "mutex lock", "spinlock", "critical section", "race condition", "peterson", "test and set", "producer consumer", "readers writers", "dining philosophers", "busy waiting"]
+  },
+  {
+    "name": "Deadlocks",
+    "keywords": ["deadlock", "banker", "safe state", "resource allocation graph", "wait for graph", "circular wait", "hold and wait", "deadlock prevention", "deadlock avoidance"]
+  },
+  {
+    "name": "Memory Management",
+    "keywords": ["memory management", "paging", "page table", "segmentation", "fragmentation", "internal fragmentation", "external fragmentation", "tlb", "translation lookaside buffer", "swapping", "contiguous allocation", "first fit", "best fit", "worst fit", "logical address", "physical address", "base and limit", "memory allocation", "buddy system"]
+  },
+  {
+    "name": "Virtual Memory",
+    "keywords": ["virtual memory", "demand paging", "page fault", "page replacement", "lru", "optimal page replacement", "thrashing", "belady", "working set", "copy on write", "swap space"]
+  },
+  {
+    "name": "File Systems",
+    "keywords": ["file system", "filesystem", "file allocation", "file allocation table", "fat32", "inode", "directory", "linked allocation", "indexed allocation", "journaling", "ext4", "ntfs", "vfs", "file descriptor", "free space management", "file permission"]
+  },
+  {
+    "name": "Disk Scheduling",
+    "keywords": ["disk scheduling", "disk", "sstf", "scan algorithm", "look algorithm", "c-scan", "c-look", "elevator algorithm", "seek time", "rotational latency", "disk arm", "disk head"]
+  },
+  {
+    "name": "I/O Systems",
+    "keywords": ["i/o", "input output", "dma", "interrupt", "device driver", "device controller", "spooling", "buffering", "polling"]
+  },
+  {
+    "name": "Operating System Structure",
+    "keywords": ["operating system structure", "os structure", "monolithic", "microkernel", "layered approach", "layered structure", "kernel", "hybrid kernel", "exokernel", "virtual machine", "hypervisor", "user mode", "kernel mode", "dual mode", "bootstrap", "booting"]
+  },
+  {
+    "name": "System Calls",
+    "keywords": ["system call", "syscall", "system call interface", "trap", "strace", "posix", "exec"]
+  },
+  {
+    "name": "IPC",
+    "keywords": ["ipc", "inter process communication", "inter-process communication", "interprocess communication", "message passing", "shared memory", "pipe", "named pipe", "mkfifo", "message queue", "socket", "signal", "rpc", "remote procedure call"]
+  },
+  {
+    "name": "Linux basics",
+    "keywords": ["linux", "unix", "bash", "shell", "terminal", "command line", "chmod", "chown", "grep", "sudo", "ubuntu"]
+  }
 ]

@@ -3,7 +3,7 @@ import FollowUpCard from './FollowUpCard';
 import SuggestionCard from './SuggestionCard';
 import { User, Brain, AlertTriangle } from 'lucide-react';
 
-export default function ChatMessage({ msg, onSuggestionClick }) {
+export default function ChatMessage({ msg, onSuggestionClick, onFollowUpClick }) {
   const isUser = msg.role === 'user';
   const isError = msg.role === 'error';
 
@@ -57,7 +57,7 @@ export default function ChatMessage({ msg, onSuggestionClick }) {
           {/* Cards outside the main bubble */}
           {!isUser && (
             <div className="w-full flex flex-col gap-1 mt-1 pl-1 md:pl-2">
-              <FollowUpCard question={msg.follow_up} onClick={onSuggestionClick} />
+              <FollowUpCard question={msg.follow_up} onClick={onFollowUpClick} />
               <SuggestionCard suggestion={msg.suggestion} onClick={onSuggestionClick} />
             </div>
           )}
