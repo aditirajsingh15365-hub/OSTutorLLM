@@ -13,13 +13,16 @@ export default function FallbackNotice({ model, primaryModel }) {
   return (
     <div
       role="status"
-      className="mt-2 inline-flex items-start gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs text-amber-800"
+      className="mt-2.5 inline-flex items-center gap-2 rounded-xl border border-amber-200/90 bg-amber-50/90 px-3 py-1.5 text-xs text-amber-900 shadow-xs select-none"
     >
-      <Zap size={14} className="mt-0.5 shrink-0 text-amber-600" />
-      <span>
-        Answered by the lite model{model ? ` (${prettyModelName(model)})` : ''} due to high load
+      <div className="p-1 rounded-md bg-amber-100/90 text-amber-700">
+        <Zap size={13} className="shrink-0" />
+      </div>
+      <span className="leading-snug">
+        Served by fallback model{model ? ` (${prettyModelName(model)})` : ''} due to server load
         {primaryModel ? ` on ${prettyModelName(primaryModel)}` : ''}.
       </span>
     </div>
   );
 }
+
