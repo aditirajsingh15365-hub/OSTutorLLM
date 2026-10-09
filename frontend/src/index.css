@@ -8,4 +8,74 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: #f8fafc;
+  color: #0f172a;
 }
+
+/* Custom subtle scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Enhanced Markdown Tables */
+.prose table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  margin-top: 1.25rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.875rem;
+}
+
+.prose th {
+  background-color: #f1f5f9;
+  color: #1e293b;
+  font-weight: 600;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid #cbd5e1;
+}
+
+.prose td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+}
+
+.prose tr:last-child td {
+  border-bottom: none;
+}
+
+.prose tr:nth-child(even) td {
+  background-color: #f8fafc;
+}
+
+/* Enhanced Blockquote */
+.prose blockquote {
+  border-left-width: 4px;
+  border-left-color: #3b82f6;
+  background-color: #eff6ff;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0 0.5rem 0.5rem 0;
+  font-style: italic;
+  color: #1e3a8a;
+  margin: 1rem 0;
+}
+
