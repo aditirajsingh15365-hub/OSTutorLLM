@@ -31,10 +31,13 @@ Thumbs.db
 coverage/
 .cache/
 
-# Local data (Databases, Vector Stores)
+# Local data (Databases, Vector Stores, Documents)
 *.sqlite3
 chroma_db/
 local_data/
+backend/data/vector_store/
+backend/data/documents/
+!backend/data/documents/README.md
 
 # Specific scripts that aren't source code
 refactor_frontend.py

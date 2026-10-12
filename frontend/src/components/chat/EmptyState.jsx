@@ -65,7 +65,7 @@ const PROMPTS = [
   { 
     category: 'Exam & Viva',
     topic: 'Virtual Memory',
-    title: 'Viva Voce: Demand Paging & TLB',
+    title: 'Viva Voice: Demand Paging & TLB',
     text: 'Conduct a rapid viva session asking me 3 oral exam questions on TLB hits, page faults, and LRU replacement.',
     icon: GraduationCap,
     accent: 'text-rose-600 bg-rose-50 border-rose-200'
@@ -104,7 +104,7 @@ export default function EmptyState({ onPromptClick }) {
       </h2>
       
       <p className="text-slate-600 text-center mb-8 max-w-2xl text-sm md:text-base leading-relaxed">
-        Personalized university-level tutor designed for conceptual mastery, algorithm practice, 5/10-mark exam formats, and interactive viva voce.
+        Personalized university-level tutor designed for conceptual mastery, algorithm practice, 5/10-mark exam formats, and interactive viva voice.
       </p>
 
       {/* Category Pills Filter */}
