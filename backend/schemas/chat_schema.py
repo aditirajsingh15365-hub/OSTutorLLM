@@ -34,6 +34,27 @@ class DocumentInfo(BaseModel):
     size_bytes: int
 
 
+class SourceCitation(BaseModel):
+    doc_id: str
+    document_title: str
+    page: Optional[int] = None
+    excerpt: str
+    scope: str  # "official" | "user"
+    score: Optional[float] = None
+
+
+class DocumentInfo(BaseModel):
+    doc_id: str
+    filename: str
+    file_type: str
+    scope: str  # "official" | "user"
+    session_id: Optional[str] = None
+    chunk_count: int
+    page_count: Optional[int] = None
+    created_at: str
+    size_bytes: int
+
+
 class ChatRequest(BaseModel):
     session_id: str = Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9_-]+$")
     message: str = Field(min_length=1, max_length=4000)
