@@ -61,7 +61,7 @@ const MODES = [
   }
 ];
 
-export default function LearningModeSelector({ mode, setMode }) {
+export default function LearningModeSelector({ mode, setMode, examPolicy, setExamPolicy }) {
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef(null);
 
@@ -170,6 +170,22 @@ export default function LearningModeSelector({ mode, setMode }) {
                 </button>
               );
             })}
+          </div>
+
+          <div className="border-t border-slate-100 bg-slate-50/70 p-3">
+            <label htmlFor="answer-policy" className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              Course notes policy
+            </label>
+            <select
+              id="answer-policy"
+              value={examPolicy}
+              onChange={(event) => setExamPolicy(event.target.value)}
+              className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-medium text-slate-700 outline-none focus:border-blue-500"
+            >
+              <option value="ai_enhanced">AI Enhanced (notes plus general OS knowledge)</option>
+              <option value="strict">Strict Notes Only</option>
+            </select>
+            <p className="mt-1 text-[11px] text-slate-500">Strict mode will not answer from general knowledge when notes do not match.</p>
           </div>
         </div>
       )}

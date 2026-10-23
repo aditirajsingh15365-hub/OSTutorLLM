@@ -8,15 +8,15 @@ build/
 .venv/
 venv/
 __pycache__/
-*.pyc
+*.py[cod]
 .pytest_cache/
 
-# Environment and Secrets
+# Environment and secrets
 .env
 .env.*
+!.env.example
 secrets/
 credentials/
-!*.example
 
 # IDE
 .vscode/
@@ -31,15 +31,18 @@ Thumbs.db
 coverage/
 .cache/
 
-# Local data (Databases, Vector Stores, Documents)
+# Local databases, vector stores, and uploaded documents
 *.sqlite3
 chroma_db/
 local_data/
 backend/data/vector_store/
-backend/data/documents/
+backend/data/documents/*
 !backend/data/documents/README.md
+!backend/data/documents/official/
+backend/data/documents/official/*
+!backend/data/documents/official/README.md
 
-# Specific scripts that aren't source code
+# Local helper scripts
 refactor_frontend.py
 create_backend.py
 create_frontend.py

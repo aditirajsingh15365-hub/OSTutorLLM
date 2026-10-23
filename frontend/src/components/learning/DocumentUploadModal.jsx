@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, UploadCloud, FileText, Trash2, CheckCircle2, AlertCircle, BookOpen, User, RefreshCw, Loader2 } from 'lucide-react';
 import { getDocuments, uploadDocument, deleteDocument } from '../../services/api';
 
@@ -10,7 +10,7 @@ export default function DocumentUploadModal({ isOpen, onClose, sessionId }) {
   const [successMsg, setSuccessMsg] = useState(null);
   const fileInputRef = useRef(null);
 
-  const fetchDocs = async () => {
+  const fetchDocs = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -22,12 +22,25 @@ export default function DocumentUploadModal({ isOpen, onClose, sessionId }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [sessionId]);
 
   useEffect(() => {
-    if (isOpen) {
-      fetchDocs();
-    }
+    if (!isOpen) return undefined;
+    let cancelled = false;
+    getDocuments(sessionId)
+      .then((docs) => {
+        if (!cancelled) {
+          setDocuments(docs);
+          setError(null);
+        }
+      })
+      .catch((err) => {
+        console.error('Error fetching documents:', err);
+        if (!cancelled) setError('Could not load course materials.');
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen, sessionId]);
 
   const handleFileUpload = async (e) => {
@@ -50,7 +63,7 @@ export default function DocumentUploadModal({ isOpen, onClose, sessionId }) {
       setUploading(true);
       setError(null);
       setSuccessMsg(null);
-      await uploadDocument(file, sessionId, 'user');
+      await uploadDocument(file, sessionId);
       setSuccessMsg(`Successfully uploaded and indexed "${file.name}"!`);
       if (fileInputRef.current) fileInputRef.current.value = '';
       await fetchDocs();
@@ -94,7 +107,7 @@ export default function DocumentUploadModal({ isOpen, onClose, sessionId }) {
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-900">Course Materials & Notes</h2>
-              <p className="text-xs text-slate-500">Manage official syllabus materials and student lecture notes for RAG grounding.</p>
+              <p className="text-xs text-slate-500">Manage course material and your private lecture notes. User uploads are not reviewed or verified.</p>
             </div>
           </div>
 
@@ -213,7 +226,7 @@ export default function DocumentUploadModal({ isOpen, onClose, sessionId }) {
 
             {officialDocs.length === 0 ? (
               <div className="text-center py-4 border border-slate-100 rounded-xl bg-slate-50/30 text-xs text-slate-400">
-                No official course materials indexed yet. Place PDFs in <code className="bg-slate-100 px-1 py-0.5 rounded">backend/data/documents/official</code>.
+                The official corpus is empty. An administrator can add reviewed course PDFs, Markdown, or text files to <code className="bg-slate-100 px-1 py-0.5 rounded">backend/data/documents/official</code> and restart the backend to index them. Only add material that is actually part of the course.
               </div>
             ) : (
               <div className="space-y-2">
@@ -235,7 +248,7 @@ export default function DocumentUploadModal({ isOpen, onClose, sessionId }) {
                     </div>
 
                     <span className="px-2 py-0.5 text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200/70 rounded">
-                      VERIFIED
+                      OFFICIAL CORPUS
                     </span>
                   </div>
                 ))}

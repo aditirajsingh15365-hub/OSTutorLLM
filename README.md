@@ -15,6 +15,8 @@ OSTutorLLM is an academic Operating Systems AI tutor designed to behave like a r
 - **Learning Modes:** Instantly switch the tutor's behavior (Beginner, Detailed, Exam 5-mark, Exam 10-mark, Viva, Example-Based, Code/Practical).
 - **Tutor Controller:** A custom FastAPI orchestration layer that forces the LLM to separate raw text explanations from follow-up questions.
 - **Mock Mode:** Develop and test the UI natively without spending LLM API credits.
+- **Deterministic OS calculations:** CPU scheduling (FCFS, SJF, SRTF, priority, and Round Robin) and Banker's safety checks use Python algorithms for supported structured inputs.
+- **Private course notes:** User uploads are isolated by browser session and are not reviewed or verified by the project.
 
 ## 🛠️ Tech Stack
 - **Frontend:** React, Vite, Tailwind CSS v4, `react-markdown`
@@ -26,7 +28,7 @@ OSTutorLLM is an academic Operating Systems AI tutor designed to behave like a r
 ## 🚀 Getting Started (Local Development)
 
 ### Prerequisites
-- Node.js (v18+)
+- Node.js (v20.19+ or v22.12+)
 - Python (3.10+)
 
 ### 1. Backend Setup
@@ -66,6 +68,10 @@ npm run dev
 ```
 The UI will be available at `http://localhost:5173`.
 
+### Official course corpus
+
+The official corpus is empty in a fresh checkout. To add official course material, an administrator must review the source and confirm it belongs to the course, then place a `.pdf`, `.md`, or `.txt` file in `backend/data/documents/official`. The backend indexes new files in that directory at startup. Public uploads are always stored as private user notes and cannot add or remove official material. User uploads are not represented as reviewed or verified sources.
+
 ---
 
 ## 📂 Project Architecture
@@ -89,7 +95,6 @@ OSTutorLLM/
 └── AGENTS.md              # Persistent LLM development rules and roadmap
 ```
 
-## 🗺️ Roadmap (Future Phases)
-- **Phase 2 (RAG Integration):** Grounding the AI's answers in verified university course materials and PDFs using a local Vector Database (ChromaDB).
-- **Phase 3 (Algorithm Engine):** Deterministic Python implementations of OS algorithms (e.g., Round Robin scheduling, Banker's Algorithm) to ensure flawless numerical accuracy for exam prep.
-- **Phase 4 (Persistence):** PostgreSQL database to track student learning state and history.
+## 🗺️ Roadmap
+- **Current:** RAG with an explicitly managed official corpus and session-isolated user notes; deterministic CPU scheduling and Banker's safety calculations for supported structured inputs.
+- **Future:** PostgreSQL persistence for student learning state and history.

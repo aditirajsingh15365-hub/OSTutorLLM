@@ -5,6 +5,14 @@ export default function CitationsCard({ citations = [], groundingStatus = 'none'
   const [isOpen, setIsOpen] = useState(false);
 
   if (!citations || citations.length === 0) {
+    if (groundingStatus === 'no_match') {
+      return (
+        <div className="mt-2 text-[11px] text-slate-600 flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200/70 rounded-xl">
+          <BookOpen size={13} className="text-amber-600" />
+          <span>No course notes matched. Strict notes-only mode did not use general AI knowledge.</span>
+        </div>
+      );
+    }
     if (groundingStatus === 'fallback') {
       return (
         <div className="mt-2 text-[11px] text-slate-500 flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200/70 rounded-xl">
@@ -41,7 +49,7 @@ export default function CitationsCard({ citations = [], groundingStatus = 'none'
             </span>
           )}
           <span className="text-xs font-medium text-slate-600">
-            {citations.length} {citations.length === 1 ? 'verified source' : 'verified sources'} cited
+            {citations.length} {citations.length === 1 ? 'course note source' : 'course note sources'} cited
           </span>
         </div>
 
@@ -78,7 +86,7 @@ export default function CitationsCard({ citations = [], groundingStatus = 'none'
                         : 'bg-purple-50 text-purple-700 border border-purple-200/70'
                     }`}
                   >
-                    {c.scope === 'official' ? 'Official Syllabus' : 'Student Note'}
+                      {c.scope === 'official' ? 'Official Corpus' : 'Student Note'}
                   </span>
                   {c.score !== undefined && c.score !== null && (
                     <span className="text-[10px] text-slate-400 font-mono">

@@ -1,6 +1,7 @@
 from core.config import settings
 from schemas.chat_schema import ChatRequest, ChatResponse
 from services.llm_service import LLMService
+from services.algorithm_engine import solve_from_message
 from services.rag_service import rag_service
 from services.topic_service import TopicService
 
@@ -30,6 +31,21 @@ class TutorController:
         student_messages = [item["content"] for item in history if item["role"] == "user"]
         topic = self.topic_service.detect_topic(request.message, student_messages)
 
+        # Structured scheduling problems are calculated locally so timing
+        # results do not depend on language-model arithmetic.
+        deterministic_answer = solve_from_message(request.message)
+        if deterministic_answer:
+            return ChatResponse(
+                session_id=request.session_id,
+                topic=topic,
+                answer=deterministic_answer,
+                mode=request.learning_mode,
+                model_used="deterministic",
+                primary_model="deterministic",
+                grounding_status="none",
+                citations=[],
+            )
+
         # -------------------------------------------------------------
         # Adaptive RAG Retrieval
         # -------------------------------------------------------------
@@ -51,6 +67,20 @@ class TutorController:
                 context_text="",
                 official_count=0,
                 user_count=0
+            )
+
+        if exam_policy == "strict" and retrieval.status == "fallback":
+            return ChatResponse(
+                session_id=request.session_id,
+                topic=topic,
+                answer=("No sufficiently relevant course notes matched this question. "
+                        "Strict notes-only mode needs a matching course excerpt, so I can’t answer from general knowledge. "
+                        "Try a different wording or add a relevant course note."),
+                mode=request.learning_mode,
+                model_used="notes-only",
+                primary_model="notes-only",
+                grounding_status="no_match",
+                citations=[],
             )
 
         # Generate response with grounded context
