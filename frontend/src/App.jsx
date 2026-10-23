@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { BookOpen, Cpu, RotateCcw, FolderUp, Layers, CheckCircle } from 'lucide-react';
+import { BookOpen, Cpu, RotateCcw, FolderUp } from 'lucide-react';
 import { sendChatMessage, checkHealth } from './services/api';
 
 // Components
@@ -14,14 +14,29 @@ import DocumentUploadModal from './components/learning/DocumentUploadModal';
 // The backend needs the earlier turns so the tutor can remember what it asked.
 // Tutor turns carry their follow-up question so the model knows what the
 // student's next message is answering. Error bubbles are UI-only and never sent.
-const buildHistory = (messages) =>
-  messages
+const buildHistory = (messages) => {
+  const candidates = messages
     .filter((m) => m.role === 'user' || m.role === 'tutor')
     .map((m) =>
       m.role === 'user'
-        ? { role: 'user', content: m.content }
-        : { role: 'tutor', content: m.content, follow_up_question: m.follow_up || null }
+        ? { role: 'user', content: String(m.content || '') }
+        : { role: 'tutor', content: String(m.content || ''), follow_up_question: m.follow_up || null }
     );
+  const bounded = [];
+  let remainingChars = 20000;
+  for (const item of candidates.reverse()) {
+    if (bounded.length >= 20 || remainingChars <= 0) break;
+    const content = item.content.slice(0, Math.min(4000, remainingChars));
+    remainingChars -= content.length;
+    if (!content) break;
+    const followUp = item.follow_up_question
+      ? item.follow_up_question.slice(0, Math.min(1000, remainingChars))
+      : null;
+    remainingChars -= followUp?.length || 0;
+    bounded.push({ ...item, content, ...(item.role === 'tutor' ? { follow_up_question: followUp } : {}) });
+  }
+  return bounded.reverse();
+};
 
 const errorText = (error) => {
   if (!error.response) {
@@ -45,7 +60,7 @@ function App() {
   const [examPolicy, setExamPolicy] = useState('ai_enhanced'); // 'ai_enhanced' | 'strict'
   // The tutor question the student is currently answering (set by clicking a follow-up card).
   const [pendingFollowUp, setPendingFollowUp] = useState(null);
-  const [sessionId, setSessionId] = useState(() => {
+  const [sessionId] = useState(() => {
     const saved = localStorage.getItem('ostutor_session_id');
     if (saved) return saved;
     const newId = (typeof crypto !== 'undefined' && crypto.randomUUID)
@@ -143,19 +158,15 @@ function App() {
     inputRef.current?.focus();
   };
 
-  // Reset conversation to fresh state with a new session ID
+  // A fresh chat clears only the transcript. The stable session ID keeps its
+  // uploaded notes reachable and owned by the same browser session.
   const handleNewSession = () => {
-    if (messages.length > 0 && !window.confirm('Start a new session? This will clear the current conversation.')) {
+    if (messages.length > 0 && !window.confirm('Start a new chat? This clears the conversation. Your uploaded notes will stay available.')) {
       return;
     }
     setMessages([]);
     setInput('');
     setPendingFollowUp(null);
-    const newId = (typeof crypto !== 'undefined' && crypto.randomUUID)
-      ? crypto.randomUUID()
-      : Math.random().toString(36).substring(2, 11);
-    localStorage.setItem('ostutor_session_id', newId);
-    setSessionId(newId);
   };
 
   // Only the latest tutor message's follow-up question can be answered, because that is
@@ -256,15 +267,15 @@ function App() {
           <button
             type="button"
             onClick={handleNewSession}
-            title="Start a fresh tutoring session"
+            title="Start a new chat and keep your uploaded notes"
             className="flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200/90 rounded-xl shadow-2xs hover:border-slate-300 transition-all cursor-pointer"
           >
             <RotateCcw size={14} className="text-slate-500" />
-            <span className="hidden md:inline">New Session</span>
+            <span className="hidden md:inline">New Chat</span>
           </button>
 
           {/* Learning Mode Selector */}
-          <LearningModeSelector mode={mode} setMode={setMode} />
+          <LearningModeSelector mode={mode} setMode={setMode} examPolicy={examPolicy} setExamPolicy={setExamPolicy} />
         </div>
       </header>
 

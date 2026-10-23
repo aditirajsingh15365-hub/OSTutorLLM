@@ -130,8 +130,8 @@ export default function ChatMessage({ msg, onSuggestionClick, onFollowUpClick })
             <FallbackNotice model={msg.model_used} primaryModel={msg.primary_model} />
           )}
 
-          {/* Grounding & Verified Source Citations */}
-          {!isUser && (msg.citations?.length > 0 || msg.grounding_status === 'fallback') && (
+          {/* Course grounding status and source citations */}
+          {!isUser && (msg.citations?.length > 0 || msg.grounding_status === 'fallback' || msg.grounding_status === 'no_match') && (
             <div className="w-full pl-0.5">
               <CitationsCard citations={msg.citations} groundingStatus={msg.grounding_status} />
             </div>

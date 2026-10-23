@@ -50,11 +50,10 @@ export const getDocuments = async (session_id) => {
     return response.data;
 };
 
-export const uploadDocument = async (file, session_id, scope = 'user') => {
+export const uploadDocument = async (file, session_id) => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('session_id', session_id);
-    formData.append('scope', scope);
 
     const response = await api.post('/documents/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }

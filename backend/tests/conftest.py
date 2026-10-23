@@ -1,3 +1,13 @@
+import os
+import tempfile
+from pathlib import Path
+
+# Chroma's ONNX helper ignores XDG_CACHE_HOME and defaults to Path.home(). Point
+# its documented class cache path at a writable temporary test location instead.
+from chromadb.utils.embedding_functions import ONNXMiniLM_L6_V2
+
+ONNXMiniLM_L6_V2.DOWNLOAD_PATH = Path(tempfile.gettempdir()) / "ostutorllm-chroma-cache" / "all-MiniLM-L6-v2"
+
 import pytest
 
 from core.config import settings

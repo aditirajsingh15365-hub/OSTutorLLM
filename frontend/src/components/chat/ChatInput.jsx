@@ -57,6 +57,7 @@ export default function ChatInput({ input, setInput, handleSend, loading, inputR
             ref={inputRef}
             minRows={1}
             maxRows={6}
+            maxLength={4000}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={onKeyDown}

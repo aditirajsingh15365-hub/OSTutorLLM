@@ -5,7 +5,7 @@ import os
 import re
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
 import chromadb
@@ -75,11 +75,17 @@ class RAGService:
         return {}
 
     def _save_registry(self, registry: dict):
+        temp_path = f"{self.metadata_file}.{uuid.uuid4().hex}.tmp"
         try:
-            with open(self.metadata_file, "w", encoding="utf-8") as f:
+            with open(temp_path, "w", encoding="utf-8") as f:
                 json.dump(registry, f, indent=2)
-        except Exception as e:
-            logger.error(f"Error saving registry: {e}")
+            os.replace(temp_path, self.metadata_file)
+        except Exception:
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass
+            raise
 
     # =========================================================================
     # Text Extraction & Chunking
@@ -150,10 +156,17 @@ class RAGService:
         file_path: str,
         filename: str,
         scope: str = "user",
-        session_id: Optional[str] = None
+        session_id: Optional[str] = None,
+        storage_name: Optional[str] = None,
     ) -> DocumentInfo:
         if not self.collection:
             raise RuntimeError("Vector store not available.")
+        if scope not in {"official", "user"}:
+            raise ValueError("Document scope must be official or user.")
+        if scope == "user" and (not session_id or not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", session_id)):
+            raise ValueError("A valid owner session is required for user documents.")
+        if storage_name is not None and not re.fullmatch(r"[0-9a-f]{32}\.(pdf|md|txt)", storage_name):
+            raise ValueError("Invalid server-generated storage name.")
 
         ext = os.path.splitext(filename)[1].lower()
         if ext not in [".pdf", ".md", ".txt"]:
@@ -199,13 +212,23 @@ class RAGService:
 
         # Batch insertion into ChromaDB to respect max batch limits
         batch_size = 500
-        for b_start in range(0, len(ids), batch_size):
-            b_end = b_start + batch_size
-            self.collection.add(
-                ids=ids[b_start:b_end],
-                documents=documents[b_start:b_end],
-                metadatas=metadatas[b_start:b_end]
-            )
+        added_ids = []
+        try:
+            for b_start in range(0, len(ids), batch_size):
+                b_end = b_start + batch_size
+                self.collection.add(
+                    ids=ids[b_start:b_end],
+                    documents=documents[b_start:b_end],
+                    metadatas=metadatas[b_start:b_end]
+                )
+                added_ids.extend(ids[b_start:b_end])
+        except Exception:
+            if added_ids:
+                try:
+                    self.collection.delete(ids=added_ids)
+                except Exception:
+                    logger.exception("Could not roll back partially inserted vectors")
+            raise
 
         file_size = os.path.getsize(file_path)
         doc_info = DocumentInfo(
@@ -216,14 +239,24 @@ class RAGService:
             session_id=session_id,
             chunk_count=len(all_chunks),
             page_count=len(pages_data),
-            created_at=datetime.utcnow().isoformat(),
+            created_at=datetime.now(timezone.utc).isoformat(),
             size_bytes=file_size
         )
 
         # Register document
         registry = self._load_registry()
-        registry[doc_id] = doc_info.model_dump()
-        self._save_registry(registry)
+        registry_record = doc_info.model_dump()
+        if storage_name:
+            registry_record["storage_name"] = storage_name
+        registry[doc_id] = registry_record
+        try:
+            self._save_registry(registry)
+        except Exception:
+            try:
+                self.collection.delete(where={"doc_id": doc_id})
+            except Exception:
+                logger.exception("Could not roll back vectors after registry write failure")
+            raise
 
         logger.info(f"Ingested document {filename} ({scope}) with {len(all_chunks)} chunks.")
         return doc_info
@@ -279,8 +312,11 @@ class RAGService:
             return False
 
         doc_data = registry[doc_id]
+        if doc_data.get("scope") != "user":
+            logger.warning("Public deletion is restricted to user documents: %s", doc_id)
+            return False
         # Authorization check: only owner session can delete user uploads
-        if doc_data.get("scope") == "user" and doc_data.get("session_id") != session_id:
+        if not session_id or doc_data.get("session_id") != session_id:
             logger.warning(f"Unauthorized deletion attempt for doc {doc_id} by session {session_id}")
             return False
 
@@ -289,20 +325,26 @@ class RAGService:
             self.collection.delete(where={"doc_id": doc_id})
         except Exception as e:
             logger.error(f"Error deleting vectors for {doc_id}: {e}")
+            return False
 
         # 2. Remove physical file if in user uploads
-        filename = doc_data.get("filename")
-        if doc_data.get("scope") == "user" and filename:
-            user_path = os.path.join(self.user_docs_dir, f"{session_id}_{filename}")
+        storage_name = doc_data.get("storage_name")
+        if storage_name and re.fullmatch(r"[0-9a-f]{32}\.(pdf|md|txt)", storage_name):
+            user_path = os.path.join(self.user_docs_dir, storage_name)
             if os.path.exists(user_path):
                 try:
                     os.remove(user_path)
-                except OSError:
-                    pass
+                except OSError as e:
+                    logger.error("Could not remove stored upload for %s: %s", doc_id, e)
+                    return False
 
         # 3. Remove from registry
         del registry[doc_id]
-        self._save_registry(registry)
+        try:
+            self._save_registry(registry)
+        except Exception as e:
+            logger.error("Could not update registry after deleting vectors for %s: %s", doc_id, e)
+            return False
         logger.info(f"Deleted document {doc_id} and associated vector embeddings.")
         return True
 
@@ -318,6 +360,9 @@ class RAGService:
         top_k: int = 4
     ) -> RetrievalResult:
         """Adaptive retrieval with strict security boundaries and coverage analysis."""
+        if source_scope not in {"official", "user", "both", "general"}:
+            logger.warning("Rejected invalid retrieval scope %r", source_scope)
+            return RetrievalResult(status="fallback", citations=[], context_text="", official_count=0, user_count=0)
         if not self.collection or source_scope == "general":
             return RetrievalResult(
                 status="fallback",
@@ -346,6 +391,10 @@ class RAGService:
                 }
             else:
                 where_filter = {"scope": "official"}
+        if where_filter is None:
+            # Fail closed: every vector query must be scoped to official material
+            # or to the requesting session's own uploads.
+            return RetrievalResult(status="fallback", citations=[], context_text="", official_count=0, user_count=0)
 
         # Expand common OS acronyms for semantic retrieval
         expanded_query = query
@@ -369,8 +418,7 @@ class RAGService:
                 "query_texts": [expanded_query],
                 "n_results": top_k
             }
-            if where_filter:
-                query_args["where"] = where_filter
+            query_args["where"] = where_filter
 
             results = self.collection.query(**query_args)
         except Exception as e:
@@ -384,7 +432,8 @@ class RAGService:
         if not documents:
             return RetrievalResult(status="fallback", citations=[], context_text="", official_count=0, user_count=0)
 
-        # Process citations and calculate relevance
+        # Process only passages with a minimum semantic match. Low-score passages
+        # must not be presented as evidence or sent to the answer model.
         citations: List[SourceCitation] = []
         context_parts = []
         official_count = 0
@@ -396,10 +445,19 @@ class RAGService:
         query_words = raw_words - STOPWORDS or raw_words
         matched_keywords = set()
 
+        relevant = []
         for idx, doc_text in enumerate(documents):
             meta = metadatas[idx] if idx < len(metadatas) else {}
             dist = distances[idx] if idx < len(distances) else 1.0
             similarity = max(0.0, min(1.0, 1.0 - dist))
+            if similarity < 0.35:
+                continue
+            relevant.append((idx, doc_text, meta, similarity))
+
+        if not relevant:
+            return RetrievalResult(status="fallback", citations=[], context_text="", official_count=0, user_count=0)
+
+        for idx, doc_text, meta, similarity in relevant:
 
             # Track keyword coverage
             doc_lower = doc_text.lower()
@@ -423,7 +481,8 @@ class RAGService:
             )
             citations.append(citation)
 
-            # Format passage for prompt injection
+            # Format as reference data; the LLM service passes this separately
+            # from system instructions and marks it as untrusted.
             page_label = f", Page {meta.get('page')}" if meta.get("page") else ""
             context_parts.append(
                 f"[{idx+1}] Source: {citation.document_title}{page_label} ({scope.upper()} MATERIAL)\n"
@@ -432,7 +491,7 @@ class RAGService:
 
         # Adaptive evaluation of evidence
         keyword_coverage = len(matched_keywords) / max(len(query_words), 1)
-        top_similarity = citations[0].score if citations and citations[0].score is not None else 0.0
+        top_similarity = max((c.score or 0.0) for c in citations)
 
         logger.info(
             f"RAG Evaluation: Top Sim={top_similarity:.3f}, "
