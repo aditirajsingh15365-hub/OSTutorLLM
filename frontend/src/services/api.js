@@ -24,12 +24,47 @@ export const checkHealth = async () => {
     return response.data;
 };
 
-export const sendChatMessage = async (session_id, message, learning_mode, conversation_history = []) => {
+export const sendChatMessage = async (
+    session_id,
+    message,
+    learning_mode,
+    conversation_history = [],
+    source_scope = 'both',
+    exam_policy = 'ai_enhanced'
+) => {
     const response = await api.post('/chat', {
         session_id,
         message,
         learning_mode,
-        conversation_history
+        conversation_history,
+        source_scope,
+        exam_policy
+    });
+    return response.data;
+};
+
+export const getDocuments = async (session_id) => {
+    const response = await api.get('/documents', {
+        params: { session_id }
+    });
+    return response.data;
+};
+
+export const uploadDocument = async (file, session_id, scope = 'user') => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('session_id', session_id);
+    formData.append('scope', scope);
+
+    const response = await api.post('/documents/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
+};
+
+export const deleteDocument = async (doc_id, session_id) => {
+    const response = await api.delete(`/documents/${doc_id}`, {
+        params: { session_id }
     });
     return response.data;
 };

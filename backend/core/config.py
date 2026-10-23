@@ -28,6 +28,13 @@ class Settings(BaseSettings):
     # Only the most recent N messages of the conversation are sent to the LLM.
     MAX_HISTORY_MESSAGES: int = 20
 
+    # RAG Settings
+    RAG_ENABLED: bool = True
+    RAG_VECTOR_DIR: str = "data/vector_store"
+    RAG_DOCS_DIR: str = "data/documents"
+    RAG_MAX_CHUNKS: int = 4
+    MAX_UPLOAD_SIZE_MB: int = 15
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]

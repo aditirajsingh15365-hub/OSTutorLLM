@@ -15,9 +15,9 @@ logger = logging.getLogger(__name__)
 MAX_ATTEMPTS = 2
 RETRY_DELAY_SECONDS = 1.0
 
-# HTTP status codes that mean "this model is unavailable right now, try the fallback
-# model instead of retrying it". Add 429/500/504 here if you want those to fall back too.
-FALLBACK_STATUS_CODES = {503}
+# HTTP status codes that mean "this model is unavailable or quota exhausted right now, try the fallback
+# model instead of retrying it".
+FALLBACK_STATUS_CODES = {503, 429}
 
 
 def _is_unavailable(exc: Exception) -> bool:
@@ -60,32 +60,99 @@ class LLMService:
         else:
             self.client = None
 
-    def generate_response(self, user_msg: str, mode: str, history: Optional[List[dict]] = None) -> LLMResult:
+    def generate_response(
+        self,
+        user_msg: str,
+        mode: str,
+        history: Optional[List[dict]] = None,
+        rag_context: Optional[str] = None,
+        grounding_status: str = "none",
+        exam_policy: str = "ai_enhanced"
+    ) -> LLMResult:
         if settings.LLM_MODE.lower() == "mock":
             return LLMResult(
-                response=self._mock_response(user_msg, mode),
+                response=self._mock_response(user_msg, mode, grounding_status),
                 model="mock",
                 primary_model="mock",
             )
-        return self._real_response(user_msg, mode, history)
+        return self._real_response(user_msg, mode, history, rag_context, grounding_status, exam_policy)
 
-    def _mock_response(self, prompt: str, mode: str) -> TutorLLMResponse:
+    def _mock_response(self, prompt: str, mode: str, grounding_status: str = "none") -> TutorLLMResponse:
         return TutorLLMResponse(
-            answer=f"[Mock {mode} response] Based on your query, here is an explanation about OS concepts.",
-            follow_up_question="Mock: Do you understand?",
-            suggestion="Mock: Next topic"
+            answer=f"[Mock {mode} response | Grounding: {grounding_status}] Based on Operating Systems principles and verified notes, here is the explanation for: '{prompt}'.",
+            follow_up_question="Mock: Can you explain the main trade-off in your own words?",
+            suggestion="Mock: Next related OS topic"
         )
 
     @staticmethod
-    def _build_system_prompt(mode: str) -> str:
-        return (
-            "You are an academic Operating Systems tutor. You must behave like a teacher. "
+    def _build_system_prompt(
+        mode: str,
+        rag_context: Optional[str] = None,
+        grounding_status: str = "none",
+        exam_policy: str = "ai_enhanced"
+    ) -> str:
+        prompt = (
+            "You are an academic Operating Systems tutor. You must behave like a university teacher. "
             f"Your responses must match the requested learning mode: {mode}.\n\n"
             "TUTORING PROGRESSION RULES:\n"
             "1. Explain -> Check understanding -> Wait for response -> Evaluate -> Adapt -> Ask next.\n"
             "2. If the student is confused: Explain -> Simplify -> Analogy -> Check understanding.\n"
             "3. If the student is correct: Acknowledge -> Deepen -> Next question.\n"
             "4. If the student asks a new question: Answer the new question rather than forcing the previous follow-up.\n\n"
+        )
+
+        if mode == "exam_5":
+            prompt += (
+                "EXAM 5-MARK CRITERIA:\n"
+                "- Write a high-yield, structured 5-mark answer.\n"
+                "- Include: Definition, 3-5 core points/conditions, and concise conclusion.\n"
+                "- Use bold headings and clean bullet points.\n\n"
+            )
+        elif mode == "exam_10":
+            prompt += (
+                "EXAM 10-MARK CRITERIA:\n"
+                "- Write a comprehensive, university-standard 10-mark answer.\n"
+                "- Include: Formal Definition, Architecture/Components, Step-by-Step Mechanisms, Criteria/Conditions, and Trade-offs.\n"
+                "- Structure into clear numbered headings.\n\n"
+            )
+
+        if rag_context and grounding_status == "sufficient":
+            prompt += (
+                "GROUNDING: SUFFICIENT COURSE PASSAGES AVAILABLE\n"
+                "- Ground your answer in the verified course excerpts provided below.\n"
+                "- When student notes (USER MATERIAL) are present, prioritize their specific syllabus structure, slide numbers, and terminology.\n"
+                "- Clearly distinguish between OFFICIAL MATERIAL (e.g. Silberschatz textbook) and USER MATERIAL (student uploaded slides/notes). Never call the official textbook the student's upload.\n"
+                "- Preserve verified definitions and conditions. Synthesize clearly rather than blindly copying.\n\n"
+            )
+        elif rag_context and grounding_status == "partial":
+            prompt += (
+                "GROUNDING: PARTIAL COURSE PASSAGES AVAILABLE\n"
+                "- Some claims are supported by the provided course passages below.\n"
+                "- Use the notes for supported claims. Supplement gaps with general OS knowledge, but clearly distinguish note-backed facts from general AI additions.\n"
+                "- Distinguish OFFICIAL MATERIAL from USER MATERIAL accurately.\n\n"
+            )
+        elif grounding_status == "fallback":
+            if exam_policy == "strict":
+                prompt += (
+                    "GROUNDING: STRICT NOTES-ONLY (NO MATCH)\n"
+                    "- The student requested strict notes-based answering, but no course notes were found covering this topic.\n"
+                    "- State clearly that the supplied course notes do not cover this topic. Do not fabricate citations.\n\n"
+                )
+            else:
+                prompt += (
+                    "GROUNDING: GENERAL AI FALLBACK\n"
+                    "- No matching course notes found. Explain using general OS principles. Do not invent fake citations.\n\n"
+                )
+
+        if rag_context:
+            prompt += (
+                "VERIFIED COURSE MATERIAL EXCERPTS:\n"
+                "--------------------------------------------------\n"
+                f"{rag_context}\n"
+                "--------------------------------------------------\n\n"
+            )
+
+        prompt += (
             "IMPORTANT OUTPUT RULES:\n"
             "- Put your main explanation in the 'answer' field.\n"
             "- Do NOT ask questions inside the 'answer' field.\n"
@@ -93,6 +160,7 @@ class LLMService:
             "- Place a recommendation in the 'suggestion' field, but ONLY if appropriate.\n"
             "- Do not mechanically attach a follow-up or suggestion to every response if it interrupts a natural flow."
         )
+        return prompt
 
     @staticmethod
     def _build_contents(user_msg: str, history: Optional[List[dict]]) -> List[types.Content]:
@@ -101,9 +169,6 @@ class LLMService:
             if msg["role"] == "user":
                 role, text = "user", msg["content"]
             else:
-                # Replay tutor turns in the same JSON shape the model produces, so it
-                # sees the follow-up question it asked without any extra markup it
-                # might imitate.
                 role = "model"
                 text = TutorLLMResponse(
                     answer=msg["content"],
@@ -124,7 +189,15 @@ class LLMService:
             raise ValueError("Model returned an empty response")
         return TutorLLMResponse(**json.loads(text))
 
-    def _real_response(self, user_msg: str, mode: str, history: Optional[List[dict]]) -> LLMResult:
+    def _real_response(
+        self,
+        user_msg: str,
+        mode: str,
+        history: Optional[List[dict]],
+        rag_context: Optional[str] = None,
+        grounding_status: str = "none",
+        exam_policy: str = "ai_enhanced"
+    ) -> LLMResult:
         if not self.client:
             logger.error("LLM_MODE is not 'mock' but GEMINI_API_KEY is not set")
             raise LLMServiceError(
@@ -134,7 +207,7 @@ class LLMService:
 
         contents = self._build_contents(user_msg, history)
         config = types.GenerateContentConfig(
-            system_instruction=self._build_system_prompt(mode),
+            system_instruction=self._build_system_prompt(mode, rag_context, grounding_status, exam_policy),
             response_mime_type="application/json",
             response_schema=TutorLLMResponse,
             temperature=0.7,

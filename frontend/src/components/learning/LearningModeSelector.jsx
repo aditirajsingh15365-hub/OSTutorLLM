@@ -37,7 +37,7 @@ const MODES = [
   },
   { 
     id: 'viva', 
-    label: 'Viva Voce', 
+    label: 'Viva Voice', 
     icon: GraduationCap, 
     desc: 'Rapid interactive oral examination questions',
     badge: 'Viva Drill',

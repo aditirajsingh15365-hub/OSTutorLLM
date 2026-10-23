@@ -3,6 +3,7 @@ import MarkdownRenderer from './MarkdownRenderer';
 import FollowUpCard from './FollowUpCard';
 import SuggestionCard from './SuggestionCard';
 import FallbackNotice from './FallbackNotice';
+import CitationsCard from './CitationsCard';
 import { User, Brain, AlertTriangle, Copy, Check, Sparkles, BookOpen, Lightbulb, HelpCircle, Layers } from 'lucide-react';
 
 export default function ChatMessage({ msg, onSuggestionClick, onFollowUpClick }) {
@@ -127,6 +128,13 @@ export default function ChatMessage({ msg, onSuggestionClick, onFollowUpClick })
           {/* Shown when the lite model answered because the main model was overloaded */}
           {!isUser && msg.fallback_used && (
             <FallbackNotice model={msg.model_used} primaryModel={msg.primary_model} />
+          )}
+
+          {/* Grounding & Verified Source Citations */}
+          {!isUser && (msg.citations?.length > 0 || msg.grounding_status === 'fallback') && (
+            <div className="w-full pl-0.5">
+              <CitationsCard citations={msg.citations} groundingStatus={msg.grounding_status} />
+            </div>
           )}
 
           {/* Follow-up question & Next topic cards */}

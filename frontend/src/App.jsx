@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { BookOpen, Cpu, RotateCcw } from 'lucide-react';
+import { BookOpen, Cpu, RotateCcw, FolderUp, Layers, CheckCircle } from 'lucide-react';
 import { sendChatMessage, checkHealth } from './services/api';
 
 // Components
@@ -9,6 +9,7 @@ import EmptyState from './components/chat/EmptyState';
 import TypingIndicator from './components/chat/TypingIndicator';
 import LearningModeSelector from './components/learning/LearningModeSelector';
 import CurriculumTopicsModal from './components/learning/CurriculumTopicsModal';
+import DocumentUploadModal from './components/learning/DocumentUploadModal';
 
 // The backend needs the earlier turns so the tutor can remember what it asked.
 // Tutor turns carry their follow-up question so the model knows what the
@@ -39,9 +40,20 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [serverStatus, setServerStatus] = useState('connecting'); // 'connecting' | 'online' | 'sleeping' | 'mock'
   const [isTopicsOpen, setIsTopicsOpen] = useState(false);
+  const [isDocsOpen, setIsDocsOpen] = useState(false);
+  const [sourceScope, setSourceScope] = useState('both'); // 'both' | 'official' | 'user' | 'general'
+  const [examPolicy, setExamPolicy] = useState('ai_enhanced'); // 'ai_enhanced' | 'strict'
   // The tutor question the student is currently answering (set by clicking a follow-up card).
   const [pendingFollowUp, setPendingFollowUp] = useState(null);
-  const [sessionId, setSessionId] = useState(() => Math.random().toString(36).substring(7));
+  const [sessionId, setSessionId] = useState(() => {
+    const saved = localStorage.getItem('ostutor_session_id');
+    if (saved) return saved;
+    const newId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : Math.random().toString(36).substring(2, 11);
+    localStorage.setItem('ostutor_session_id', newId);
+    return newId;
+  });
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -86,7 +98,7 @@ function App() {
     setLoading(true);
 
     try {
-      const data = await sendChatMessage(sessionId, text, mode, history);
+      const data = await sendChatMessage(sessionId, text, mode, history, sourceScope, examPolicy);
       const tutorMessage = {
         role: 'tutor',
         content: data.answer,
@@ -97,6 +109,8 @@ function App() {
         fallback_used: data.fallback_used,
         model_used: data.model_used,
         primary_model: data.primary_model,
+        grounding_status: data.grounding_status,
+        citations: data.citations || [],
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages((prev) => [...prev, tutorMessage]);
@@ -137,7 +151,11 @@ function App() {
     setMessages([]);
     setInput('');
     setPendingFollowUp(null);
-    setSessionId(Math.random().toString(36).substring(7));
+    const newId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : Math.random().toString(36).substring(2, 11);
+    localStorage.setItem('ostutor_session_id', newId);
+    setSessionId(newId);
   };
 
   // Only the latest tutor message's follow-up question can be answered, because that is
@@ -197,6 +215,32 @@ function App() {
         {/* Actions & Mode Selector */}
         <div className="flex items-center gap-2 sm:gap-2.5">
           
+          {/* Source Scope Selector */}
+          <div className="hidden lg:flex items-center gap-1.5 bg-slate-100 border border-slate-200/70 p-1 rounded-xl text-xs">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider pl-1.5">Scope:</span>
+            <select
+              value={sourceScope}
+              onChange={(e) => setSourceScope(e.target.value)}
+              className="bg-white border border-slate-200 text-slate-700 font-medium py-1 px-2 rounded-lg text-xs outline-none cursor-pointer hover:border-slate-300"
+            >
+              <option value="both">Both (Official + Notes)</option>
+              <option value="official">Official Syllabus Only</option>
+              <option value="user">My Uploaded Notes Only</option>
+              <option value="general">General AI (No Notes)</option>
+            </select>
+          </div>
+
+          {/* Course Notes & Upload Button */}
+          <button
+            type="button"
+            onClick={() => setIsDocsOpen(true)}
+            title="Upload and manage course notes (PDF/Markdown)"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs font-semibold text-purple-700 bg-purple-50/80 hover:bg-purple-100/80 border border-purple-200/90 rounded-xl shadow-2xs transition-all cursor-pointer"
+          >
+            <FolderUp size={14} className="text-purple-600" />
+            <span className="hidden md:inline">Course Notes</span>
+          </button>
+
           {/* Topics / Syllabus Button */}
           <button
             type="button"
@@ -262,6 +306,13 @@ function App() {
         isOpen={isTopicsOpen}
         onClose={() => setIsTopicsOpen(false)}
         onSelectTopic={handlePromptClick}
+      />
+
+      {/* Course Notes & RAG Upload Modal */}
+      <DocumentUploadModal
+        isOpen={isDocsOpen}
+        onClose={() => setIsDocsOpen(false)}
+        sessionId={sessionId}
       />
     </div>
   );

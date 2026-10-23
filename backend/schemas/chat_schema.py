@@ -10,11 +10,35 @@ class Message(BaseModel):
     follow_up_question: Optional[str] = None
 
 
+class SourceCitation(BaseModel):
+    doc_id: str
+    document_title: str
+    page: Optional[int] = None
+    excerpt: str
+    scope: str  # "official" | "user"
+    score: Optional[float] = None
+
+
+class DocumentInfo(BaseModel):
+    doc_id: str
+    filename: str
+    file_type: str
+    scope: str  # "official" | "user"
+    session_id: Optional[str] = None
+    chunk_count: int
+    page_count: Optional[int] = None
+    created_at: str
+    size_bytes: int
+
+
 class ChatRequest(BaseModel):
     session_id: str
     message: str
     learning_mode: str
     conversation_history: Optional[List[Message]] = []
+    # RAG options
+    source_scope: Optional[str] = "both"  # "official", "user", "both", "general"
+    exam_policy: Optional[str] = "ai_enhanced"  # "strict", "ai_enhanced"
 
 
 class ChatResponse(BaseModel):
@@ -29,3 +53,6 @@ class ChatResponse(BaseModel):
     model_used: Optional[str] = None
     primary_model: Optional[str] = None
     fallback_used: bool = False
+    # RAG Grounding metadata
+    grounding_status: Optional[str] = "none"  # "sufficient", "partial", "fallback", "none"
+    citations: Optional[List[SourceCitation]] = []

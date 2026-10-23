@@ -6,4 +6,6 @@ pytest
 httpx
 python-dotenv
 google-genai
-
+chromadb
+pypdf
+python-multipart

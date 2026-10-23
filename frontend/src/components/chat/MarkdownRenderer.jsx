@@ -76,11 +76,57 @@ function CodeBlock({ inline, className, children, ...props }) {
   );
 }
 
+function formatLatexSymbols(text) {
+  if (!text || typeof text !== 'string') return text;
+  
+  const subMap = {
+    '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄',
+    '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉',
+    'i': 'ᵢ', 'j': 'ⱼ', 'k': 'ₖ', 'm': 'ₘ', 'n': 'ₙ',
+    'x': 'ₓ', 'y': 'ᵧ', 'p': 'ₚ', 't': 'ₜ'
+  };
+
+  let cleaned = text
+    // Replace all LaTeX arrow variants with clean Unicode arrows
+    .replace(/\\(?:rightarrow|to|implies|longrightarrow)\b/g, '→')
+    .replace(/\\(?:leftarrow|longleftarrow)\b/g, '←')
+    .replace(/\\(?:leftrightarrow|iff)\b/g, '↔')
+    .replace(/\\(?:Rightarrow)\b/g, '⇒')
+    .replace(/\\(?:Leftarrow)\b/g, '⇐')
+    .replace(/\\(?:Leftrightarrow)\b/g, '⇔')
+    // LaTeX set braces: \{ and \} -> { and }
+    .replace(/\\\{/g, '{')
+    .replace(/\\\}/g, '}')
+    // LaTeX ellipses: \dots, \cdots, \ldots -> ...
+    .replace(/\\(?:dots|cdots|ldots)\b/g, '...')
+    // LaTeX set symbols & operators
+    .replace(/\\in\b/g, '∈')
+    .replace(/\\notin\b/g, '∉')
+    .replace(/\\subset(?:eq)?\b/g, '⊆')
+    .replace(/\\cap\b/g, '∩')
+    .replace(/\\cup\b/g, '∪')
+    .replace(/\\emptyset\b/g, '∅')
+    .replace(/\\times\b/g, '×')
+    .replace(/\\le(?:q)?\b/g, '≤')
+    .replace(/\\ge(?:q)?\b/g, '≥')
+    .replace(/\\ne(?:q)?\b/g, '≠')
+    // Subscripts: P_1, P_{1}, P_i, P_{i}, R_j, R_{j}
+    .replace(/([A-Za-z])_\{?([0-9ijkmnxypt])\}?/g, (_, v, s) => `${v}${subMap[s] || s}`)
+    // Universal strip of inline LaTeX math dollar delimiters ($...$)
+    .replace(/\$([^$\n]+)\$/g, '$1')
+    // Universal strip of block LaTeX math delimiters ($$...$$)
+    .replace(/\$\$([^$]+)\$\$/g, '$1');
+
+  return cleaned;
+}
+
 export default function MarkdownRenderer({ content }) {
+  const formattedContent = formatLatexSymbols(content);
+
   return (
     <div className="prose prose-slate max-w-none text-slate-800 text-[15px] md:text-base leading-relaxed prose-headings:font-bold prose-headings:tracking-tight prose-headings:text-slate-900 prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-a:text-blue-600 hover:prose-a:text-blue-800 prose-a:font-medium prose-pre:p-0 prose-pre:bg-transparent prose-pre:m-0 prose-strong:text-slate-900 prose-strong:font-bold">
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ code: CodeBlock }}>
-        {content}
+        {formattedContent}
       </ReactMarkdown>
     </div>
   );
