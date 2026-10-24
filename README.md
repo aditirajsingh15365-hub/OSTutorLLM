@@ -7,7 +7,7 @@ OSTutorLLM is an academic Operating Systems AI tutor designed to behave like a r
 - **Pedagogical Progression:** The AI is strictly instructed to explain, simplify if you are confused, ask follow-up questions, and recommend related topics.
 - **Academic Focus:** Tailored specifically for undergraduate Operating Systems concepts (Processes, Deadlocks, CPU Scheduling, Memory Management, etc.).
 
-## ✨ Key Features (Phase 1)
+## ✨ Key Features 
 - **Interactive UI:** A custom React frontend featuring a polished, distraction-free chat interface.
 - **Structured Rendering:** Markdown support with syntax highlighting for code, alongside distinct interactive UI cards for "Check your understanding" and "Recommended next topics".
 - **Learning Modes:** Instantly switch the tutor's behavior (Beginner, Detailed, Exam 5-mark, Exam 10-mark, Viva, Example-Based, Code/Practical).
