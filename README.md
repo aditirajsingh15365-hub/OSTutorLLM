@@ -2,8 +2,6 @@
 
 OSTutorLLM is an academic Operating Systems AI tutor designed to behave like a real university professor rather than a generic chatbot. It emphasizes pedagogical learning—explaining concepts, checking understanding with targeted follow-up questions, and guiding students through structured learning paths.
 
-**🌍 Live Deployment:** [Click here to view the live site](https://os-tutor-llm.vercel.app)
-
 ## 🎯 Core Philosophy
 - **Teaching over Telling:** Instead of dumping information, the tutor actively checks your understanding.
 - **Pedagogical Progression:** The AI is strictly instructed to explain, simplify if you are confused, ask follow-up questions, and recommend related topics.
